@@ -1,0 +1,192 @@
+#%RAML 1.0
+
+title: ARC web proxy API
+version: 1.0
+mediaType: application/json
+
+types:
+  TransformedPayload:
+    type: object
+    properties: 
+      type:
+        type: string;
+        description:  The type of the original data type
+      data:
+        type: number[]
+        description: Array of integers to be restored to its original form defined in the `type`.
+  MultipartBody:
+    type: object
+    properties: 
+      isFile: 
+        type: boolean
+        description: When true a this entry represent a file part
+      name:
+        type: string
+        description: The name of the filed
+      value: 
+        type: string
+        description: Converted value
+      type:
+        type: string
+        required: false
+        description: |
+          A content type entered by the user to the text part of the text part input.
+          This can only be set when `isFile` is false.
+      fileName:
+        required: false
+        type: string
+        description: The original file name used with the part
+      enabled:
+        required: false
+        type: boolean
+        description: Whether the parameter is enabled. Default to true.
+        default: true
+      size:
+        required: false
+        type: number
+        description: When `isFile` is true then this is the size of the selected file.
+  ProxyHttpRequest:
+    type: object
+    properties: 
+      payload:
+        type: string | TransformedPayload
+        required: false
+        description: The request payload
+      multipart:
+        type: MultipartBody[]
+        required: false
+        description: |
+          ARCs internal transformation of a native FormData into a structure that
+          can be stored in the data store. This is used internally by their model
+          and when requesting ARC request object this is restored to the original
+          format.
+      blob: 
+        type: string
+        description: |
+          When a file is the request payload then in the data store it is transformed into a 
+          string and the payload is emptied. This is used internally by the data store
+          to restore the original format
+      url:
+        type: string
+        description: The request URL
+      method:
+        type: string
+        description: HTTP method name
+      headers:
+        type: string
+        description: HTTP headers string
+  ProxyOptions:
+    type: object
+    properties: 
+      native:
+        required: false
+        type: boolean
+        description: When set it uses NodeJS' native HTTP client.
+        default: false
+      validateCertificates:
+        required: false
+        type: boolean
+        description: When set it validates certificates during request.
+        default: false
+      followRedirects:
+        required: false
+        type: boolean
+        description: When false the request object won't follow redirects.
+        default: true
+      defaultHeaders:
+        required: false
+        type: boolean
+        description: When set the request adds `accept` and `user-agent` headers if missing.
+        default: false
+      defaultUserAgent:
+        required: string
+        type: boolean
+        description: Default `user-agent` header to be used with request when `defaultHeaders` is set.
+      defaultAccept:
+        required: string
+        type: boolean
+        description:  Default `accept` header to be used with request when `defaultHeaders` is set.
+        default:  */*
+      proxy:
+        required: string
+        type: boolean
+        description:  |
+          The proxy URI to connect to when making the connection.
+          It should contain the host and port. Default port is 80.
+      proxyUsername:
+        required: string
+        type: boolean
+        description: The proxy authorization username value.
+      proxyPassword:
+        required: string
+        type: boolean
+        description: The proxy authorization password value.
+      timeout:
+        required: false
+        type: number
+        description: Request timeout in milliseconds
+  ProxyMessage:
+    type: object
+    properties: 
+      request: ProxyHttpRequest
+      config: 
+        required: false
+        type: ProxyOptions
+  ProxyTransportInfo:
+    type: object
+    properties: 
+      httpMessage: 
+        type: TransformedPayload
+        description: The HTTP message sent to the server (full message).
+      startTime: 
+        type: number
+        description: The timestamp when the request was started (before the connection is made)
+      endTime: 
+        type: number
+        description: The timestamp of when the response ended.
+  HTTPResponse:
+    type: object
+    properties: 
+      status:
+        type: number
+        description: The response status code
+      statusText:
+        required: false
+        type: string
+        description: The reason part of the status message
+      headers:
+        required: false
+        type: string
+        description: The response headers
+      payload:
+        required: false
+        type: TransformedPayload
+        description: The response message
+  ErrorResponse:
+    type: HTTPResponse
+    properties: 
+      error: string
+  Response:
+    type: HTTPResponse
+    properties:
+      loadingTime: number
+  ProxyResult:
+    type: object
+    properties: 
+      response: Response | ErrorResponse
+      transport: ProxyTransportInfo
+/proxy:
+  post:
+    description: |
+      Proxies a request through a proxy.
+    body: 
+      application/json:
+        description: The body is the ARC request object and the client configuration.
+        type: ProxyMessage
+    responses: 
+      200:
+        description: The proxy result is ready
+        body: 
+          application/json:
+            type: ProxyResult
+        
